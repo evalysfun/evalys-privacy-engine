@@ -14,7 +14,6 @@ setup(
     name="evalys-privacy-engine",
     version="0.1.0",
     author="Evalys Team",
-    author_email="team@evalys.io",
     description="Privacy Gradient Engine for Evalys - Privacy mode orchestration",
     long_description=long_description,
     long_description_content_type="text/markdown",

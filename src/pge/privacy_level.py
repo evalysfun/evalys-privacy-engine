@@ -14,6 +14,7 @@ class PrivacyMode(str, Enum):
     NORMAL = "normal"
     STEALTH = "stealth"
     MAX_GHOST = "max_ghost"
+    CONFIDENTIAL = "confidential"  # Arcium-powered confidential mode
 
 
 @dataclass
@@ -22,13 +23,15 @@ class PrivacyLevel:
     Privacy level configuration
     
     Attributes:
-        mode: Privacy mode (normal, stealth, max_ghost)
+        mode: Privacy mode (normal, stealth, max_ghost, confidential)
         burner_count: Number of burner wallets to use
         timing_jitter_ms: Random timing jitter in milliseconds
         order_slicing: Whether to slice orders
         fragmentation_level: Level of order fragmentation (1-10)
         use_mev_protection: Whether to use MEV protection
         rotation_frequency: How often to rotate wallets (in transactions)
+        use_arcium: Whether to use Arcium confidential computation (for confidential mode)
+        arcium_plan_id: Plan ID from Arcium MXE (if using confidential mode)
     """
     mode: PrivacyMode
     burner_count: int
@@ -37,6 +40,8 @@ class PrivacyLevel:
     fragmentation_level: int
     use_mev_protection: bool
     rotation_frequency: int = 1
+    use_arcium: bool = False
+    arcium_plan_id: Optional[str] = None
     
     def __post_init__(self):
         """Validate privacy level configuration"""
@@ -82,6 +87,18 @@ MAX_GHOST_PRIVACY = PrivacyLevel(
 )
 
 
+CONFIDENTIAL_PRIVACY = PrivacyLevel(
+    mode=PrivacyMode.CONFIDENTIAL,
+    burner_count=5,  # Will be adjusted by Arcium plan
+    timing_jitter_ms=2000,  # Will be adjusted by Arcium plan
+    order_slicing=True,
+    fragmentation_level=8,  # Will be adjusted by Arcium plan
+    use_mev_protection=True,
+    rotation_frequency=1,
+    use_arcium=True,
+)
+
+
 def get_privacy_level(mode: PrivacyMode) -> PrivacyLevel:
     """
     Get predefined privacy level for a mode
@@ -96,6 +113,7 @@ def get_privacy_level(mode: PrivacyMode) -> PrivacyLevel:
         PrivacyMode.NORMAL: NORMAL_PRIVACY,
         PrivacyMode.STEALTH: STEALTH_PRIVACY,
         PrivacyMode.MAX_GHOST: MAX_GHOST_PRIVACY,
+        PrivacyMode.CONFIDENTIAL: CONFIDENTIAL_PRIVACY,
     }
     return levels[mode]
 
