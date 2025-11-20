@@ -52,9 +52,10 @@ def _get_gmcp_client():
         try:
             import sys
             import os
-            # Add parent directory to path to import from evalys-arcium-gMCP
+            # Add parent directory to path to import from evalys-arcium-gMPC bridge service
+            # Note: This bridge service communicates with the unified evalys-arcium-gmpc-mxe MXE
             gmcp_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 
-                                     "..", "evalys-arcium-gMCP", "src")
+                                     "..", "evalys-arcium-gMPC", "src")
             if os.path.exists(gmcp_path):
                 sys.path.insert(0, os.path.dirname(gmcp_path))
                 from bridge.gmcp_client import GMPCClient
@@ -116,8 +117,10 @@ class PrivacyGradientEngine:
             curve_conditions: Curve analysis results
             enable_arcium: Whether to use Arcium confidential computation
             arcium_inputs: Optional inputs for Arcium (user_prefs, user_history, curve_state)
-            use_gmcp: Whether to use gMPC for encrypted intent processing
+            use_gmcp: Whether to use gMPC bridge service for encrypted intent processing
             gmcp_inputs: Optional inputs for gMPC (intent, market_snapshot, historical_stats)
+            
+        Note: The gMPC bridge service communicates with the unified evalys-arcium-gmpc-mxe MXE
         
         Returns:
             Configured PrivacyLevel
