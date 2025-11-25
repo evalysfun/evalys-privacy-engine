@@ -38,6 +38,7 @@ ENV/
 .coverage
 htmlcov/
 .tox/
+demo.py
 
 # Environment
 .env

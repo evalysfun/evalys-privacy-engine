@@ -2,6 +2,21 @@
 Privacy Gradient Engine Orchestrator
 
 Main orchestrator that coordinates privacy operations.
+
+This module provides the PrivacyGradientEngine class, which:
+- Selects privacy modes based on risk and conditions
+- Integrates with Arcium bridge services for confidential computation
+- Manages privacy level state
+- Provides configuration for execution
+
+See docs/risk-model.md for risk scoring details.
+See docs/threat-model.md for threat coverage.
+
+Architecture:
+    PrivacyGradientEngine
+    ├── ModeSelector (rule-based mode selection)
+    ├── PrivacyLevel (mode configurations)
+    └── Arcium/gMPC bridge clients (optional, lazy-loaded)
 """
 
 from typing import Optional, Dict, Any
@@ -76,18 +91,37 @@ def _get_gmcp_client():
 
 class PrivacyGradientEngine:
     """
-    Privacy Gradient Engine - Main orchestrator for privacy operations
+    Privacy Gradient Engine - Main orchestrator for privacy operations.
     
     This engine manages privacy modes and coordinates privacy-preserving
-    operations across the Evalys ecosystem.
+    operations across the Evalys ecosystem. It integrates with:
+    - ModeSelector: Rule-based mode selection
+    - Arcium bridge services: Confidential computation (optional)
+    - Execution Engine: Provides privacy configuration
+    
+    State:
+        - current_mode: Currently selected PrivacyMode (None if not set)
+        - current_level: Current PrivacyLevel configuration (None if not set)
+        - default_mode: Default mode for initialization
+    
+    Side effects:
+        - Logging (mode selection, adjustments)
+        - State management (current_mode, current_level)
+    
+    Thread safety: Not thread-safe (single instance per process recommended)
     """
     
     def __init__(self, default_mode: PrivacyMode = PrivacyMode.NORMAL):
         """
-        Initialize Privacy Gradient Engine
+        Initialize Privacy Gradient Engine.
         
         Args:
-            default_mode: Default privacy mode to use
+            default_mode: Default privacy mode to use (PrivacyMode.NORMAL by default)
+        
+        Side effects:
+            - Creates ModeSelector instance
+            - Logs initialization
+            - Sets current_mode and current_level to None
         """
         self.mode_selector = ModeSelector()
         self.default_mode = default_mode
@@ -108,22 +142,56 @@ class PrivacyGradientEngine:
         gmcp_inputs: Optional[Dict[str, Any]] = None,
     ) -> PrivacyLevel:
         """
-        Select and configure privacy mode
+        Select and configure privacy mode.
+        
+        Selection priority:
+        1. gMPC bridge service (if use_gmcp=True and inputs provided)
+        2. Arcium bridge service (if enable_arcium=True and inputs provided)
+        3. Standard rule-based selection (ModeSelector)
         
         Args:
-            user_preference: User's preferred mode
-            risk_level: Risk assessment (0.0 to 1.0)
+            user_preference: User's preferred mode ("normal", "stealth", "max_ghost")
+            risk_level: Risk assessment (0.0 to 1.0, higher = more risk)
             transaction_amount: Transaction amount in SOL
-            curve_conditions: Curve analysis results
+            curve_conditions: Curve analysis results dict:
+                - sniper_activity: float (0.0 to 1.0)
             enable_arcium: Whether to use Arcium confidential computation
-            arcium_inputs: Optional inputs for Arcium (user_prefs, user_history, curve_state)
+            arcium_inputs: Optional inputs for Arcium bridge:
+                - user_preferences: dict
+                - user_history: dict
+                - curve_state: dict
             use_gmcp: Whether to use gMPC bridge service for encrypted intent processing
-            gmcp_inputs: Optional inputs for gMPC (intent, market_snapshot, historical_stats)
-            
+            gmcp_inputs: Optional inputs for gMPC bridge:
+                - trader_profile_id: str
+                - token_mint: str
+                - launchpad: str
+                - max_size_sol: float
+                - risk_level: str
+                - privacy_priority: str
+                - market_snapshot: dict
+                - historical_stats: dict
+        
         Note: The gMPC bridge service communicates with the unified evalys-arcium-gmpc-mxe MXE
         
         Returns:
-            Configured PrivacyLevel
+            Configured PrivacyLevel with mode, burner_count, timing_jitter_ms, etc.
+        
+        Side effects:
+            - Updates self.current_mode and self.current_level
+            - Logs mode selection
+            - May make HTTP requests to Arcium/gMPC bridge services (if enabled)
+        
+        Raises:
+            ValueError: If privacy level configuration is invalid
+            Exception: If Arcium/gMPC bridge calls fail (falls back to standard mode)
+        
+        Examples:
+            >>> engine = PrivacyGradientEngine()
+            >>> level = engine.select_mode(risk_level=0.6, transaction_amount=30.0)
+            >>> level.mode
+            PrivacyMode.STEALTH
+            >>> level.burner_count
+            3
         """
         # If gMPC requested (takes priority for encrypted intent processing)
         if use_gmcp or user_preference == "gmcp":

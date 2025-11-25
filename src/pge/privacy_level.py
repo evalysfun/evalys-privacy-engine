@@ -2,6 +2,13 @@
 Privacy Level Definitions
 
 Defines the three privacy modes and their characteristics.
+
+This module provides:
+- PrivacyMode enum: NORMAL, STEALTH, MAX_GHOST, CONFIDENTIAL
+- PrivacyLevel dataclass: Configuration for each mode
+- Predefined privacy levels with specific parameters
+
+See docs/threat-model.md for threat coverage of each mode.
 """
 
 from enum import Enum
@@ -10,7 +17,15 @@ from typing import Optional
 
 
 class PrivacyMode(str, Enum):
-    """Privacy mode enumeration"""
+    """
+    Privacy mode enumeration.
+    
+    Values:
+        NORMAL: Basic unlinkability (1 burner, minimal jitter)
+        STEALTH: Timing unpredictability (3 burners, moderate jitter)
+        MAX_GHOST: Highest mitigation profile (5+ burners, high jitter)
+        CONFIDENTIAL: Arcium-powered confidential computation mode
+    """
     NORMAL = "normal"
     STEALTH = "stealth"
     MAX_GHOST = "max_ghost"
@@ -20,18 +35,40 @@ class PrivacyMode(str, Enum):
 @dataclass
 class PrivacyLevel:
     """
-    Privacy level configuration
+    Privacy level configuration.
+    
+    This dataclass defines all parameters for a privacy mode.
+    Instances are validated in __post_init__.
     
     Attributes:
         mode: Privacy mode (normal, stealth, max_ghost, confidential)
-        burner_count: Number of burner wallets to use
-        timing_jitter_ms: Random timing jitter in milliseconds
-        order_slicing: Whether to slice orders
+        burner_count: Number of burner wallets to use (>= 1)
+        timing_jitter_ms: Random timing jitter in milliseconds (>= 0)
+        order_slicing: Whether to slice orders into fragments
         fragmentation_level: Level of order fragmentation (1-10)
-        use_mev_protection: Whether to use MEV protection
+        use_mev_protection: Whether to use MEV protection (Jito bundles, relays)
         rotation_frequency: How often to rotate wallets (in transactions)
         use_arcium: Whether to use Arcium confidential computation (for confidential mode)
         arcium_plan_id: Plan ID from Arcium MXE (if using confidential mode)
+    
+    Invariants (enforced in __post_init__):
+        - fragmentation_level in [1, 10]
+        - burner_count >= 1
+        - timing_jitter_ms >= 0
+    
+    Side effects: None (immutable dataclass)
+    
+    Examples:
+        >>> level = PrivacyLevel(
+        ...     mode=PrivacyMode.STEALTH,
+        ...     burner_count=3,
+        ...     timing_jitter_ms=500,
+        ...     order_slicing=True,
+        ...     fragmentation_level=3,
+        ...     use_mev_protection=True
+        ... )
+        >>> level.mode
+        PrivacyMode.STEALTH
     """
     mode: PrivacyMode
     burner_count: int
@@ -101,13 +138,28 @@ CONFIDENTIAL_PRIVACY = PrivacyLevel(
 
 def get_privacy_level(mode: PrivacyMode) -> PrivacyLevel:
     """
-    Get predefined privacy level for a mode
+    Get predefined privacy level for a mode.
+    
+    Returns a pre-configured PrivacyLevel instance for the given mode.
+    These are the default configurations used by the orchestrator.
     
     Args:
-        mode: Privacy mode
-        
+        mode: Privacy mode (NORMAL, STEALTH, MAX_GHOST, or CONFIDENTIAL)
+    
     Returns:
-        PrivacyLevel configuration
+        PrivacyLevel configuration with predefined parameters
+    
+    Side effects: None (pure function)
+    
+    Raises:
+        KeyError: If mode is not in the predefined levels
+    
+    Examples:
+        >>> level = get_privacy_level(PrivacyMode.STEALTH)
+        >>> level.burner_count
+        3
+        >>> level.timing_jitter_ms
+        500
     """
     levels = {
         PrivacyMode.NORMAL: NORMAL_PRIVACY,

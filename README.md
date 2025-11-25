@@ -5,17 +5,18 @@ Privacy Gradient Engine (PGE) - The core orchestrator for privacy modes in the E
 ## 🎯 Overview
 
 The Privacy Gradient Engine manages three privacy levels:
-- **Normal**: Basic unlinkability with single burner wallet
-- **Stealth**: Timing unpredictability with multiple burners
-- **Max Ghost**: Full camouflage with maximum privacy features
+- **Normal**: Basic unlinkability (1 burner, 100ms jitter, no slicing)
+- **Stealth**: Timing unpredictability (3 burners, 500ms jitter, 3 slices, MEV protection)
+- **Max Ghost**: Highest mitigation profile (5+ burners, 2000ms jitter, 8 slices, MEV protection)
 
 ## ✨ Features
 
-- 🎚️ **Three Privacy Modes**: Normal, Stealth, Max Ghost
-- 🤖 **Intelligent Mode Selection**: Auto-selects mode based on risk and conditions
-- 🔄 **Dynamic Adjustment**: Adjusts privacy level based on execution context
-- 🌐 **REST API**: Full API for integration
+- 🎚️ **Three Privacy Modes**: Normal, Stealth, Max Ghost (v0.1 - rule-based selection)
+- 🤖 **Rule-Based Mode Selection (v0.1)**: Selects mode based on risk thresholds and conditions (pluggable for ML in v0.4)
+- 🔄 **Dynamic Adjustment**: Adjusts privacy level based on execution context (risk escalation)
+- 🌐 **REST API**: FastAPI-based API for integration (5 endpoints, health check)
 - 📦 **Standalone**: Can be used independently or as part of Evalys ecosystem
+- 🔐 **Arcium Integration**: Support for confidential computation via Arcium bridge services (hooks ready)
 
 ## 🚀 Installation
 
@@ -129,14 +130,69 @@ curl -X POST "http://localhost:8000/api/v1/privacy/select-mode" \
   }'
 ```
 
+#### Quick Demo (Standalone - Perfect for Screen Recording!)
+
+Run the standalone promotional demo (no server required):
+
+```bash
+# Run the demo script
+python demo.py
+
+# Or with quiet mode (suppresses logging for cleaner output)
+python demo.py --quiet
+```
+
+The demo shows:
+- Mode selection with different risk levels
+- User preference handling
+- Dynamic privacy adjustment
+- Risk threshold visualization
+
+**Perfect for screen recordings and promotional videos!**
+
+#### API Demo (Alternative)
+
+For API-based demo, start the server first:
+
+```bash
+# Start the API server
+python -m src.api.server
+
+# In another terminal, run the API demo
+python examples/quick_demo.py
+```
+
 ## 🏗️ Architecture
 
 ```
 Privacy Gradient Engine
-├── Mode Selector      # Selects appropriate mode
-├── Privacy Levels     # Defines mode configurations
-└── Orchestrator       # Main coordination logic
+├── Mode Selector      # Rule-based mode selection (risk thresholds)
+├── Privacy Levels     # Mode configurations (burner count, jitter, slicing)
+└── Orchestrator       # Main coordination logic (mode selection, Arcium hooks)
 ```
+
+### Core Components
+
+- **`src/pge/mode_selector.py`**: Rule-based mode selection logic
+  - Inputs: user_preference, risk_level, transaction_amount, curve_conditions
+  - Outputs: PrivacyMode (NORMAL, STEALTH, MAX_GHOST)
+  - Side effects: None (pure function)
+
+- **`src/pge/privacy_level.py`**: Privacy level definitions
+  - Defines: burner_count, timing_jitter_ms, order_slicing, fragmentation_level
+  - Invariants: fragmentation_level in [1, 10], burner_count >= 1
+
+- **`src/pge/orchestrator.py`**: Main orchestrator
+  - Inputs: mode selection parameters, Arcium/gMPC inputs (optional)
+  - Outputs: PrivacyLevel configuration
+  - Side effects: Logging, state management
+
+- **`src/api/routes.py`**: REST API endpoints
+  - Endpoints: /select-mode, /current-config, /adjust, /reset, /modes
+  - Inputs: JSON request bodies
+  - Outputs: JSON responses with privacy config
+
+See `docs/threat-model.md` and `docs/risk-model.md` for detailed specifications.
 
 ## 🔧 Configuration
 
@@ -152,15 +208,28 @@ export API_PORT=8000
 ## 🧪 Testing
 
 ```bash
-# Run tests
+# Run all tests
 pytest
 
 # With coverage
 pytest --cov=src --cov-report=html
 
-# Run specific test
+# Run specific test suite
 pytest tests/test_orchestrator.py
+pytest tests/test_mode_selector.py
+pytest tests/test_risk_model.py  # Threshold, monotonicity, config stability tests
 ```
+
+### Test Coverage
+
+Tests verify:
+- ✅ Mode selection thresholds (risk < 0.35 → Normal, 0.35-0.7 → Stealth, > 0.7 → Max Ghost)
+- ✅ Config stability (same inputs → same config)
+- ✅ Monotonicity (increasing risk never decreases privacy mode)
+- ✅ User preference handling with safety overrides
+- ✅ Dynamic adjustment behavior
+
+See `tests/test_risk_model.py` for risk model behavior tests.
 
 ## 📦 Project Structure
 
@@ -168,17 +237,30 @@ pytest tests/test_orchestrator.py
 evalys-privacy-engine/
 ├── src/
 │   ├── pge/              # Core PGE logic
-│   │   ├── privacy_level.py
-│   │   ├── mode_selector.py
-│   │   └── orchestrator.py
+│   │   ├── privacy_level.py    # Privacy level definitions
+│   │   ├── mode_selector.py    # Rule-based mode selection
+│   │   └── orchestrator.py     # Main orchestrator + Arcium hooks
 │   ├── api/              # REST API
-│   │   ├── routes.py
-│   │   └── server.py
+│   │   ├── routes.py     # API endpoints
+│   │   └── server.py     # FastAPI server
 │   ├── config/          # Configuration
+│   │   └── settings.py  # Environment-based settings
 │   └── utils/           # Utilities
-├── tests/               # Tests
+│       └── logger.py    # Logging utilities
+├── tests/               # Test suite
+│   ├── test_orchestrator.py
+│   ├── test_mode_selector.py
+│   ├── test_privacy_level.py
+│   └── test_risk_model.py  # Risk model behavior tests
+├── docs/                # Documentation
+│   ├── threat-model.md  # Threat model and adversaries
+│   └── risk-model.md    # Risk scoring formula and thresholds
+├── examples/            # Example scripts
+│   └── quick_demo.py    # Interactive API demo
 ├── requirements.txt
 ├── setup.py
+├── CHANGELOG.md
+├── ROADMAP.md
 └── README.md
 ```
 
@@ -196,12 +278,21 @@ Contributions are welcome! Please read our contributing guidelines first.
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
+## 📚 Documentation
+
+- **[Threat Model](docs/threat-model.md)**: Adversaries, attack vectors, and mitigations
+- **[Risk Model](docs/risk-model.md)**: Risk scoring formula, thresholds, and examples
+- **[Changelog](CHANGELOG.md)**: Version history and changes
+- **[Roadmap](ROADMAP.md)**: Planned features and improvements
+
 ## 🔗 Related Projects
 
 - [evalys-burner-swarm](https://github.com/evalysfun/evalys-burner-swarm) - Burner wallet management
 - [evalys-launchpad-adapters](https://github.com/evalysfun/evalys-launchpad-adapters) - Launchpad integrations
 - [evalys-curve-intelligence](https://github.com/evalysfun/evalys-curve-intelligence) - Curve analysis
 - [evalys-execution-engine](https://github.com/evalysfun/evalys-execution-engine) - Transaction execution
+- [evalys-arcium-bridge-service](https://github.com/evalysfun/evalys-arcium-bridge-service) - Arcium confidential compute bridge
+- [evalys-arcium-gMPC](https://github.com/evalysfun/evalys-arcium-gMPC) - Arcium gMPC bridge service
 
 ## 📞 Support
 
